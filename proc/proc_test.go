@@ -19,6 +19,8 @@ import (
 	protest "github.com/derekparker/delve/proc/test"
 )
 
+var normalLoadConfig = LoadConfig{true, 1, 64, 64, -1}
+
 func init() {
 	runtime.GOMAXPROCS(4)
 	os.Setenv("GOMAXPROCS", "4")
@@ -31,6 +33,21 @@ func TestMain(m *testing.M) {
 func withTestProcess(name string, t testing.TB, fn func(p *Process, fixture protest.Fixture)) {
 	fixture := protest.BuildFixture(name)
 	p, err := Launch([]string{fixture.Path})
+	if err != nil {
+		t.Fatal("Launch():", err)
+	}
+
+	defer func() {
+		p.Halt()
+		p.Kill()
+	}()
+
+	fn(p, fixture)
+}
+
+func withTestProcessArgs(name string, t testing.TB, fn func(p *Process, fixture protest.Fixture), args []string) {
+	fixture := protest.BuildFixture(name)
+	p, err := Launch(append([]string{fixture.Path}, args...))
 	if err != nil {
 		t.Fatal("Launch():", err)
 	}
@@ -945,7 +962,7 @@ func evalVariable(p *Process, symbol string) (*Variable, error) {
 	if err != nil {
 		return nil, err
 	}
-	return scope.EvalVariable(symbol)
+	return scope.EvalVariable(symbol, normalLoadConfig)
 }
 
 func setVariable(p *Process, symbol, value string) error {
@@ -1070,7 +1087,7 @@ func TestFrameEvaluation(t *testing.T) {
 			scope, err := p.ConvertEvalScope(g.ID, frame)
 			assertNoError(err, t, "ConvertEvalScope()")
 			t.Logf("scope = %v", scope)
-			v, err := scope.EvalVariable("i")
+			v, err := scope.EvalVariable("i", normalLoadConfig)
 			t.Logf("v = %v", v)
 			if err != nil {
 				t.Logf("Goroutine %d: %v\n", g.ID, err)
@@ -1094,7 +1111,7 @@ func TestFrameEvaluation(t *testing.T) {
 		for i := 0; i <= 3; i++ {
 			scope, err := p.ConvertEvalScope(g.ID, i+1)
 			assertNoError(err, t, fmt.Sprintf("ConvertEvalScope() on frame %d", i+1))
-			v, err := scope.EvalVariable("n")
+			v, err := scope.EvalVariable("n", normalLoadConfig)
 			assertNoError(err, t, fmt.Sprintf("EvalVariable() on frame %d", i+1))
 			n, _ := constant.Int64Val(v.Value)
 			t.Logf("frame %d n %d\n", i+1, n)
@@ -1123,7 +1140,7 @@ func TestPointerSetting(t *testing.T) {
 		// change p1 to point to i2
 		scope, err := p.CurrentThread.Scope()
 		assertNoError(err, t, "Scope()")
-		i2addr, err := scope.EvalExpression("i2")
+		i2addr, err := scope.EvalExpression("i2", normalLoadConfig)
 		assertNoError(err, t, "EvalExpression()")
 		assertNoError(setVariable(p, "p1", fmt.Sprintf("(*int)(0x%x)", i2addr.Addr)), t, "SetVariable()")
 		pval(2)
@@ -1263,10 +1280,10 @@ func TestBreakpointCountsWithDetection(t *testing.T) {
 				}
 				scope, err := th.Scope()
 				assertNoError(err, t, "Scope()")
-				v, err := scope.EvalVariable("i")
+				v, err := scope.EvalVariable("i", normalLoadConfig)
 				assertNoError(err, t, "evalVariable")
 				i, _ := constant.Int64Val(v.Value)
-				v, err = scope.EvalVariable("id")
+				v, err = scope.EvalVariable("id", normalLoadConfig)
 				assertNoError(err, t, "evalVariable")
 				id, _ := constant.Int64Val(v.Value)
 				m[id] = i
@@ -1394,7 +1411,7 @@ func BenchmarkLocalVariables(b *testing.B) {
 		scope, err := p.CurrentThread.Scope()
 		assertNoError(err, b, "Scope()")
 		for i := 0; i < b.N; i++ {
-			_, err := scope.LocalVariables()
+			_, err := scope.LocalVariables(normalLoadConfig)
 			assertNoError(err, b, "LocalVariables()")
 		}
 	})
@@ -1619,7 +1636,7 @@ func TestPackageVariables(t *testing.T) {
 		assertNoError(err, t, "Continue()")
 		scope, err := p.CurrentThread.Scope()
 		assertNoError(err, t, "Scope()")
-		vars, err := scope.PackageVariables()
+		vars, err := scope.PackageVariables(normalLoadConfig)
 		assertNoError(err, t, "PackageVariables()")
 		failed := false
 		for _, v := range vars {
@@ -1654,6 +1671,45 @@ func TestPanicBreakpoint(t *testing.T) {
 			t.Fatalf("not on unrecovered-panic breakpoint: %v", p.CurrentBreakpoint)
 		}
 	})
+}
+
+func TestCmdLineArgs(t *testing.T) {
+	expectSuccess := func(p *Process, fixture protest.Fixture) {
+		err := p.Continue()
+		bp := p.CurrentBreakpoint()
+		if bp != nil && bp.Name == "unrecovered-panic" {
+			t.Fatalf("testing args failed on unrecovered-panic breakpoint: %v", p.CurrentBreakpoint)
+		}
+		exit, exited := err.(ProcessExitedError)
+		if !exited {
+			t.Fatalf("Process did not exit!", err)
+		} else {
+			if exit.Status != 0 {
+				t.Fatalf("process exited with invalid status", exit.Status)
+			}
+		}
+	}
+
+	expectPanic := func(p *Process, fixture protest.Fixture) {
+		p.Continue()
+		bp := p.CurrentBreakpoint()
+		if bp == nil || bp.Name != "unrecovered-panic" {
+			t.Fatalf("not on unrecovered-panic breakpoint: %v", p.CurrentBreakpoint)
+		}
+	}
+
+	// make sure multiple arguments (including one with spaces) are passed to the binary correctly
+	withTestProcessArgs("testargs", t, expectSuccess, []string{"test"})
+	withTestProcessArgs("testargs", t, expectSuccess, []string{"test", "pass flag"})
+	// check that arguments with spaces are *only* passed correctly when correctly called
+	withTestProcessArgs("testargs", t, expectPanic, []string{"test pass", "flag"})
+	withTestProcessArgs("testargs", t, expectPanic, []string{"test", "pass", "flag"})
+	withTestProcessArgs("testargs", t, expectPanic, []string{"test pass flag"})
+	// and that invalid cases (wrong arguments or no arguments) panic
+	withTestProcess("testargs", t, expectPanic)
+	withTestProcessArgs("testargs", t, expectPanic, []string{"invalid"})
+	withTestProcessArgs("testargs", t, expectPanic, []string{"test", "invalid"})
+	withTestProcessArgs("testargs", t, expectPanic, []string{"invalid", "pass flag"})
 }
 
 func TestIssue462(t *testing.T) {

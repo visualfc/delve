@@ -49,6 +49,8 @@ type Client interface {
 	// Allows user to update an existing breakpoint for example to change the information
 	// retrieved when the breakpoint is hit or to change, add or remove the break condition
 	AmendBreakpoint(*api.Breakpoint) error
+	// Cancels a Next or Step call that was interrupted by a manual stop or by another breakpoint
+	CancelNext() error
 
 	// ListThreads lists all threads.
 	ListThreads() ([]*api.Thread, error)
@@ -56,9 +58,9 @@ type Client interface {
 	GetThread(id int) (*api.Thread, error)
 
 	// ListPackageVariables lists all package variables in the context of the current thread.
-	ListPackageVariables(filter string) ([]api.Variable, error)
+	ListPackageVariables(filter string, cfg api.LoadConfig) ([]api.Variable, error)
 	// EvalVariable returns a variable in the context of the current thread.
-	EvalVariable(scope api.EvalScope, symbol string) (*api.Variable, error)
+	EvalVariable(scope api.EvalScope, symbol string, cfg api.LoadConfig) (*api.Variable, error)
 
 	// SetVariable sets the value of a variable
 	SetVariable(scope api.EvalScope, symbol, value string) error
@@ -70,9 +72,9 @@ type Client interface {
 	// ListTypes lists all types in the process matching filter.
 	ListTypes(filter string) ([]string, error)
 	// ListLocals lists all local variables in scope.
-	ListLocalVariables(scope api.EvalScope) ([]api.Variable, error)
+	ListLocalVariables(scope api.EvalScope, cfg api.LoadConfig) ([]api.Variable, error)
 	// ListFunctionArgs lists all arguments to the current function.
-	ListFunctionArgs(scope api.EvalScope) ([]api.Variable, error)
+	ListFunctionArgs(scope api.EvalScope, cfg api.LoadConfig) ([]api.Variable, error)
 	// ListRegisters lists registers and their values.
 	ListRegisters() (string, error)
 
@@ -80,7 +82,7 @@ type Client interface {
 	ListGoroutines() ([]*api.Goroutine, error)
 
 	// Returns stacktrace
-	Stacktrace(int, int, bool) ([]api.Stackframe, error)
+	Stacktrace(int, int, *api.LoadConfig) ([]api.Stackframe, error)
 
 	// Returns whether we attached to a running process or not
 	AttachedToExistingProcess() bool

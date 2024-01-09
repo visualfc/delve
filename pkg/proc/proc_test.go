@@ -4459,6 +4459,7 @@ func findSource(source string, sources []string) bool {
 }
 
 func TestListImages(t *testing.T) {
+	protest.MustHaveCgo(t)
 	pluginFixtures := protest.WithPlugins(t, protest.AllNonOptimized, "plugin1/", "plugin2/")
 
 	withTestProcessArgs("plugintest", t, ".", []string{pluginFixtures[0].Path, pluginFixtures[1].Path}, protest.AllNonOptimized, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
@@ -4606,6 +4607,7 @@ func TestCallConcurrent(t *testing.T) {
 }
 
 func TestPluginStepping(t *testing.T) {
+	protest.MustHaveCgo(t)
 	pluginFixtures := protest.WithPlugins(t, protest.AllNonOptimized, "plugin1/", "plugin2/")
 
 	testseq2Args(".", []string{pluginFixtures[0].Path, pluginFixtures[1].Path}, protest.AllNonOptimized, t, "plugintest2", "", []seqTest{

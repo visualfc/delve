@@ -127,6 +127,9 @@ func gocommandCombinedOutput(command string, args ...string) (string, []byte, er
 func gocommandExecCmd(command string, args ...string) (string, *exec.Cmd) {
 	allargs := []string{command}
 	allargs = append(allargs, args...)
+	// gopdlv: Go+
+	// goBuild := exec.Command("go", allargs...)
+	// return strings.Join(append([]string{"go"}, allargs...), " "), goBuild
 	goBuild := exec.Command("gop", allargs...)
 	return strings.Join(append([]string{"gop"}, allargs...), " "), goBuild
 }

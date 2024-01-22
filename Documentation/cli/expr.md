@@ -5,7 +5,8 @@ Delve can evaluate a subset of go expression language, specifically the followin
 - All (binary and unary) on basic types except <-, ++ and --
 - Comparison operators on any type
 - Type casts between numeric types
-- Type casts of integer constants into any pointer type
+- Type casts of integer constants into any pointer type and vice versa
+- Type casts between string, []byte and []rune
 - Struct member access (i.e. `somevar.memberfield`)
 - Slicing and indexing operators on arrays, slices and strings
 - Map access
@@ -55,6 +56,8 @@ To see more values use the slice operator:
 
 For this purpose delve allows use of the slice operator on maps, `m[64:]` will return the key/value pairs of map `m` that follow the first 64 key/value pairs (note that delve iterates over maps using a fixed ordering).
 
+These limits can be configured with `max-string-len` and `max-array-values`. See [config](https://github.com/go-delve/delve/tree/master/Documentation/cli#config) for usage.
+
 # Interfaces
 
 Interfaces will be printed using the following syntax:
@@ -74,9 +77,68 @@ interface {}(*struct string) *"test"
 error(*struct main.astruct) *{A: 1, B: 2}
 ```
 
-To use a field of a struct contained inside an interface variable use a type assertion:
+To use the contents of an interface variable use a type assertion:
 
 ```
 (dlv) p iface1.(*main.astruct).B
 2
 ```
+
+Or just use the special `.(data)` type assertion:
+
+```
+(dlv) p iface1.(data).B
+2
+```
+
+If the contents of the interface variable are a struct or a pointer to struct the fields can also be accessed directly:
+
+```
+(dlv) p iface1.B
+2
+```
+
+# Specifying package paths
+
+Packages with the same name can be disambiguated by using the full package path. For example, if the application imports two packages, `some/package` and `some/other/package`, both defining a variable `A`, the two variables can be accessed using this syntax:
+
+```
+(dlv) p "some/package".A
+(dlv) p "some/other/package".A
+```
+
+# Pointers in Cgo
+
+Char pointers are always treated as NUL terminated strings, both indexing and the slice operator can be applied to them. Other C pointers can also be used similarly to Go slices, with indexing and the slice operator. In both of these cases it is up to the user to respect array bounds.
+
+# Special Features
+
+## Special Variables
+
+Delve defines two special variables:
+
+* `runtime.curg` evaluates to the 'g' struct for the current goroutine, in particular `runtime.curg.goid` is the goroutine id of the current goroutine.
+* `runtime.frameoff` is the offset of the frame's base address from the bottom of the stack.
+
+## Access to variables from previous frames
+
+Variables from previous frames (i.e. stack frames other than the top of the stack) can be referred using the following notation `runtime.frame(n).name` which is the variable called 'name' on the n-th frame from the top of the stack.
+
+## CPU Registers
+
+The name of a CPU register, in all uppercase letters, will resolve to the value of that CPU register in the current frame. For example on AMD64 the expression `RAX` will evaluate to the value of the RAX register. 
+
+Register names are shadowed by both local and global variables, so if a local variable called "RAX" exists, the `RAX` expression will evaluate to it instead of the CPU register.
+
+Register names can optionally be prefixed by any number of underscore characters, so `RAX`, `_RAX`, `__RAX`, etc... can all be used to refer to the same RAX register and, in absence of shadowing from other variables, will all evaluate to the same value.
+
+Registers of 64bits or less are returned as uint64 variables. Larger registers are returned as strings of hexadecimal digits.
+
+Because many architectures have SIMD registers that can be used by the application in different ways the following syntax is also available:
+
+* `REGNAME.intN` returns the register REGNAME as an array of intN elements.
+* `REGNAME.uintN` returns the register REGNAME as an array of uintN elements.
+* `REGNAME.floatN` returns the register REGNAME as an array of floatN elements.
+
+In all cases N must be a power of 2.
+

@@ -1,26 +1,26 @@
 package rpc1
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/rpc"
 	"net/rpc/jsonrpc"
-	"errors"
 
-	"github.com/derekparker/delve/service/api"
 	"sync"
+
+	"github.com/go-delve/delve/service/api"
 )
 
-// Client is a RPC service.Client.
+// RPCClient is a RPC service.Client.
 type RPCClient struct {
-	addr       string
-	processPid int
-	client     *rpc.Client
-	haltMu     sync.Mutex
-	haltReq    bool
+	addr    string
+	client  *rpc.Client
+	haltMu  sync.Mutex
+	haltReq bool
 }
 
-var unsupportedApiError = errors.New("unsupported")
+var errAPIUnsupported = errors.New("unsupported")
 
 // NewClient creates a new RPCClient.
 func NewClient(addr string) *RPCClient {
@@ -74,7 +74,8 @@ func (c *RPCClient) Continue() <-chan *api.DebuggerState {
 				state.Err = err
 			}
 			if state.Exited {
-				// Error types apparantly cannot be marshalled by Go correctly. Must reset error here.
+				// Error types apparently cannot be marshalled by Go correctly. Must reset error here.
+				//lint:ignore ST1005 backwards compatibility
 				state.Err = fmt.Errorf("Process %d has exited with status %d", c.ProcessPid(), state.ExitStatus)
 			}
 			ch <- state
@@ -113,9 +114,21 @@ func (c *RPCClient) Step() (*api.DebuggerState, error) {
 	return state, err
 }
 
+func (c *RPCClient) Call(expr string) (*api.DebuggerState, error) {
+	state := new(api.DebuggerState)
+	err := c.call("Command", &api.DebuggerCommand{Name: api.Call, Expr: expr}, state)
+	return state, err
+}
+
 func (c *RPCClient) StepInstruction() (*api.DebuggerState, error) {
 	state := new(api.DebuggerState)
 	err := c.call("Command", &api.DebuggerCommand{Name: api.StepInstruction}, state)
+	return state, err
+}
+
+func (c *RPCClient) ReverseStepInstruction() (*api.DebuggerState, error) {
+	state := new(api.DebuggerState)
+	err := c.call("Command", &api.DebuggerCommand{Name: api.ReverseStepInstruction}, state)
 	return state, err
 }
 
@@ -133,7 +146,7 @@ func (c *RPCClient) SwitchGoroutine(goroutineID int) (*api.DebuggerState, error)
 	state := new(api.DebuggerState)
 	cmd := &api.DebuggerCommand{
 		Name:        api.SwitchGoroutine,
-		GoroutineID: goroutineID,
+		GoroutineID: int64(goroutineID),
 	}
 	err := c.call("Command", cmd, state)
 	return state, err
@@ -190,7 +203,7 @@ func (c *RPCClient) AmendBreakpoint(bp *api.Breakpoint) error {
 }
 
 func (c *RPCClient) CancelNext() error {
-	return unsupportedApiError
+	return errAPIUnsupported
 }
 
 func (c *RPCClient) ListThreads() ([]*api.Thread, error) {
@@ -288,22 +301,18 @@ func (c *RPCClient) FindLocation(scope api.EvalScope, loc string) ([]api.Locatio
 	return answer, err
 }
 
-// Disassemble code between startPC and endPC
+// DisassembleRange disassembles code between startPC and endPC
 func (c *RPCClient) DisassembleRange(scope api.EvalScope, startPC, endPC uint64, flavour api.AssemblyFlavour) (api.AsmInstructions, error) {
 	var r api.AsmInstructions
 	err := c.call("Disassemble", DisassembleRequest{scope, startPC, endPC, flavour}, &r)
 	return r, err
 }
 
-// Disassemble function containing pc
+// DisassemblePC disassembles function containing pc
 func (c *RPCClient) DisassemblePC(scope api.EvalScope, pc uint64, flavour api.AssemblyFlavour) (api.AsmInstructions, error) {
 	var r api.AsmInstructions
 	err := c.call("Disassemble", DisassembleRequest{scope, pc, 0, flavour}, &r)
 	return r, err
-}
-
-func (c *RPCClient) url(path string) string {
-	return fmt.Sprintf("http://%s%s", c.addr, path)
 }
 
 func (c *RPCClient) call(method string, args, reply interface{}) error {

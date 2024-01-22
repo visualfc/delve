@@ -1,13 +1,16 @@
-package servicetest
+package service_test
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
-	"github.com/derekparker/delve/service/api"
+	"github.com/go-delve/delve/service/api"
+	"github.com/go-delve/delve/service/rpc1"
+	"github.com/go-delve/delve/service/rpc2"
 )
 
 func assertNoError(err error, t *testing.T, s string) {
@@ -23,6 +26,12 @@ func assertError(err error, t *testing.T, s string) {
 		_, file, line, _ := runtime.Caller(1)
 		fname := filepath.Base(file)
 		t.Fatalf("failed assertion at %s:%d: %s (no error)\n", fname, line, s)
+	}
+
+	if strings.Contains(err.Error(), "Internal debugger error") {
+		_, file, line, _ := runtime.Caller(1)
+		fname := filepath.Base(file)
+		t.Fatalf("failed assertion at %s:%d: %s internal debugger error: %v\n", fname, line, s, err)
 	}
 }
 
@@ -45,6 +54,10 @@ func testProgPath(t *testing.T, name string) string {
 			t.Fatal(err)
 		}
 	}
+	sympath, err := filepath.EvalSymlinks(fp)
+	if err == nil {
+		fp = strings.ReplaceAll(sympath, "\\", "/")
+	}
 	return fp
 }
 
@@ -52,8 +65,15 @@ type BreakpointLister interface {
 	ListBreakpoints() ([]*api.Breakpoint, error)
 }
 
-func countBreakpoints(t *testing.T, c BreakpointLister) int {
-	bps, err := c.ListBreakpoints()
+func countBreakpoints(t *testing.T, c interface{}) int {
+	var bps []*api.Breakpoint
+	var err error
+	switch c := c.(type) {
+	case *rpc2.RPCClient:
+		bps, err = c.ListBreakpoints(false)
+	case *rpc1.RPCClient:
+		bps, err = c.ListBreakpoints()
+	}
 	assertNoError(err, t, "ListBreakpoints()")
 	bpcount := 0
 	for _, bp := range bps {
@@ -64,12 +84,27 @@ func countBreakpoints(t *testing.T, c BreakpointLister) int {
 	return bpcount
 }
 
-type LocationFinder interface {
+type locationFinder1 interface {
 	FindLocation(api.EvalScope, string) ([]api.Location, error)
 }
 
-func findLocationHelper(t *testing.T, c LocationFinder, loc string, shouldErr bool, count int, checkAddr uint64) []uint64 {
-	locs, err := c.FindLocation(api.EvalScope{-1, 0}, loc)
+type locationFinder2 interface {
+	FindLocation(api.EvalScope, string, bool, [][2]string) ([]api.Location, string, error)
+}
+
+func findLocationHelper(t *testing.T, c interface{}, loc string, shouldErr bool, count int, checkAddr uint64) []uint64 {
+	var locs []api.Location
+	var err error
+
+	switch c := c.(type) {
+	case locationFinder1:
+		locs, err = c.FindLocation(api.EvalScope{GoroutineID: -1}, loc)
+	case locationFinder2:
+		locs, _, err = c.FindLocation(api.EvalScope{GoroutineID: -1}, loc, false, nil)
+	default:
+		t.Errorf("unexpected type %T passed to findLocationHelper", c)
+	}
+
 	t.Logf("FindLocation(\"%s\") → %v\n", loc, locs)
 
 	if shouldErr {
@@ -87,7 +122,7 @@ func findLocationHelper(t *testing.T, c LocationFinder, loc string, shouldErr bo
 	}
 
 	if checkAddr != 0 && checkAddr != locs[0].PC {
-		t.Fatalf("Wrong address returned for location <%s> (got %v, epected %v)", loc, locs[0].PC, checkAddr)
+		t.Fatalf("Wrong address returned for location <%s> (got %#x, expected %#x)", loc, locs[0].PC, checkAddr)
 	}
 
 	addrs := make([]uint64, len(locs))

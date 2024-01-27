@@ -33,6 +33,14 @@ github.com/go-delve/liner
 # github.com/google/go-dap v0.11.0
 ## explicit; go 1.13
 github.com/google/go-dap
+# github.com/goplus/mod v0.12.2
+## explicit; go 1.16
+github.com/goplus/mod
+github.com/goplus/mod/gopmod
+github.com/goplus/mod/modcache
+github.com/goplus/mod/modfetch
+github.com/goplus/mod/modfile
+github.com/goplus/mod/modload
 # github.com/hashicorp/golang-lru v1.0.2
 ## explicit; go 1.12
 github.com/hashicorp/golang-lru/simplelru
@@ -48,6 +56,9 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
+# github.com/qiniu/x v1.13.2
+## explicit; go 1.13
+github.com/qiniu/x/errors
 # github.com/rivo/uniseg v0.2.0
 ## explicit; go 1.12
 github.com/rivo/uniseg
@@ -85,6 +96,9 @@ golang.org/x/exp/maps
 golang.org/x/exp/slices
 # golang.org/x/mod v0.14.0
 ## explicit; go 1.18
+golang.org/x/mod/internal/lazyregexp
+golang.org/x/mod/modfile
+golang.org/x/mod/module
 golang.org/x/mod/semver
 # golang.org/x/sys v0.13.0
 ## explicit; go 1.17

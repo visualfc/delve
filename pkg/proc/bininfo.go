@@ -16,6 +16,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"github.com/go-delve/delve/pkg/logflags"
 	"github.com/go-delve/delve/pkg/proc/debuginfod"
 	"github.com/go-delve/gore"
+	"github.com/goplus/mod/gopmod"
 	"github.com/hashicorp/golang-lru/simplelru"
 )
 
@@ -2262,6 +2264,40 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 						}
 					}
 					cu.producer = cu.producer[:semicolon]
+				}
+			}
+
+			imageMod, err := gopmod.Load(image.Path)
+			if err != nil {
+				imageMod = gopmod.Default
+			}
+			if cu.lineInfo != nil {
+				cuName := cu.name
+				if runtime.GOOS == "windows" {
+					cuName = filepath.ToSlash(cuName)
+				}
+				// filter test file suffix: support test debug
+				cuName = strings.TrimSuffix(cuName, "_test")
+				for _, fileEntry := range cu.lineInfo.FileNames {
+					fileExt := filepath.Ext(fileEntry.Path)
+					if fileExt != "" && fileExt != ".go" && fileExt != ".s" && !filepath.IsAbs(fileEntry.Path) {
+						filePakage := strings.TrimSuffix(cuName, cu.lineInfo.IncludeDirs[fileEntry.DirIdx])
+						absPath := filePakage
+						if filePakage == "main" {
+							filePakage = imageMod.Path()
+						}
+						fileMod, err := imageMod.Lookup(filePakage)
+						if err == nil {
+							absPath = fileMod.ModDir
+						}
+						absPath = filepath.Join(absPath, fileEntry.Path)
+						if runtime.GOOS == "windows" {
+							absPath = filepath.ToSlash(absPath)
+						}
+						cu.lineInfo.Lookup[absPath] = fileEntry
+						delete(cu.lineInfo.Lookup, fileEntry.Path)
+						fileEntry.Path = absPath
+					}
 				}
 			}
 			gopkg, _ := entry.Val(godwarf.AttrGoPackageName).(string)

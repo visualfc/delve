@@ -10,7 +10,7 @@ require (
 	github.com/go-delve/gore v0.11.6
 	github.com/go-delve/liner v1.2.3-0.20231231155935-4726ab1d7f62
 	github.com/google/go-dap v0.11.0
-	github.com/goplus/mod v0.12.2
+	github.com/goplus/mod v0.12.3
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20

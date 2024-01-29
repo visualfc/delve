@@ -2182,6 +2182,34 @@ func (bi *BinaryInfo) registerTypeToPackageMap(entry *dwarf.Entry) {
 	bi.PackageMap[name] = []string{path}
 }
 
+// check file is gop or gop classfile
+func isGopFile(file string) bool {
+	fileExt := filepath.Ext(file)
+	return fileExt != "" && fileExt != ".go" && fileExt != ".s"
+}
+
+// gop file relative path to absolute path
+func relPathToAbsPathByPackage(imageMod *gopmod.Module, filePakage string, relPath string) string {
+	absPath := filePakage
+	if imageMod == nil {
+		panic("imageMod is nil")
+	}
+	if filePakage == "main" {
+		filePakage = imageMod.Path()
+	}
+	if imageMod.PkgType(filePakage) != -1 {
+		fileMod, err := imageMod.Lookup(filePakage)
+		if err == nil {
+			absPath = fileMod.ModDir
+		}
+	}
+	absPath = filepath.Join(absPath, relPath)
+	if runtime.GOOS == "windows" {
+		absPath = filepath.ToSlash(absPath)
+	}
+	return absPath
+}
+
 func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineBytes []byte, wg *sync.WaitGroup, cont func()) {
 	if wg != nil {
 		defer wg.Done()
@@ -2208,6 +2236,8 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 	ctxt := newLoadDebugInfoMapsContext(bi, image, pdwarf.ReadUnitVersions(debugInfoBytes))
 
 	reader := image.DwarfReader()
+
+	imageMod := gopmod.Default
 
 	for {
 		entry, err := reader.Next()
@@ -2266,10 +2296,13 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 					cu.producer = cu.producer[:semicolon]
 				}
 			}
-
-			imageMod, err := gopmod.Load(image.Path)
-			if err != nil {
-				imageMod = gopmod.Default
+			// load currentImageDir modInfo
+			imageDir := filepath.Dir(image.Path)
+			if imageMod.Path() != imageDir {
+				imageMod, err = gopmod.Load(imageDir)
+				if err != nil {
+					imageMod = gopmod.Default
+				}
 			}
 			if cu.lineInfo != nil {
 				cuName := cu.name
@@ -2279,21 +2312,9 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 				// filter test file suffix: support test debug
 				cuName = strings.TrimSuffix(cuName, "_test")
 				for _, fileEntry := range cu.lineInfo.FileNames {
-					fileExt := filepath.Ext(fileEntry.Path)
-					if fileExt != "" && fileExt != ".go" && fileExt != ".s" && !filepath.IsAbs(fileEntry.Path) {
+					if isGopFile(fileEntry.Path) {
 						filePakage := strings.TrimSuffix(cuName, cu.lineInfo.IncludeDirs[fileEntry.DirIdx])
-						absPath := filePakage
-						if filePakage == "main" {
-							filePakage = imageMod.Path()
-						}
-						fileMod, err := imageMod.Lookup(filePakage)
-						if err == nil {
-							absPath = fileMod.ModDir
-						}
-						absPath = filepath.Join(absPath, fileEntry.Path)
-						if runtime.GOOS == "windows" {
-							absPath = filepath.ToSlash(absPath)
-						}
+						absPath := relPathToAbsPathByPackage(imageMod, filePakage, fileEntry.Path)
 						cu.lineInfo.Lookup[absPath] = fileEntry
 						delete(cu.lineInfo.Lookup, fileEntry.Path)
 						fileEntry.Path = absPath

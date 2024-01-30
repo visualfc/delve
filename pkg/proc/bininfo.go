@@ -2184,6 +2184,9 @@ func (bi *BinaryInfo) registerTypeToPackageMap(entry *dwarf.Entry) {
 
 // check file is gop or gop classfile
 func isGopFile(file string) bool {
+	if filepath.IsAbs(file) {
+		return false
+	}
 	fileExt := filepath.Ext(file)
 	return fileExt != "" && fileExt != ".go" && fileExt != ".s"
 }
@@ -2296,15 +2299,16 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 					cu.producer = cu.producer[:semicolon]
 				}
 			}
-			// load currentImageDir modInfo
-			imageDir := filepath.Dir(image.Path)
-			if imageMod.Path() != imageDir {
-				imageMod, err = gopmod.Load(imageDir)
-				if err != nil {
-					imageMod = gopmod.Default
-				}
-			}
+
 			if cu.lineInfo != nil {
+				// load currentImageDir modInfo
+				imageDir := filepath.Dir(image.Path)
+				if imageMod.Path() != imageDir {
+					imageMod, err = gopmod.Load(imageDir)
+					if err != nil {
+						imageMod = gopmod.Default
+					}
+				}
 				cuName := cu.name
 				if runtime.GOOS == "windows" {
 					cuName = filepath.ToSlash(cuName)

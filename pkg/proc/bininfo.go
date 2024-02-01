@@ -2184,9 +2184,6 @@ func (bi *BinaryInfo) registerTypeToPackageMap(entry *dwarf.Entry) {
 
 // check file is gop or gop classfile
 func isGopFile(file string) bool {
-	if filepath.IsAbs(file) {
-		return false
-	}
 	fileExt := filepath.Ext(file)
 	return fileExt != "" && fileExt != ".go" && fileExt != ".s"
 }
@@ -2194,9 +2191,6 @@ func isGopFile(file string) bool {
 // gop file relative path to absolute path
 func relPathToAbsPathByPackage(imageMod *gopmod.Module, filePakage string, relPath string) string {
 	absPath := filePakage
-	if imageMod == nil {
-		panic("imageMod is nil")
-	}
 	if filePakage == "main" {
 		filePakage = imageMod.Path()
 	}
@@ -2240,7 +2234,7 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 
 	reader := image.DwarfReader()
 
-	imageMod := gopmod.Default
+	var imageMod *gopmod.Module
 
 	for {
 		entry, err := reader.Next()
@@ -2301,27 +2295,27 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 			}
 
 			if cu.lineInfo != nil {
-				// load currentImageDir modInfo
-				imageDir := filepath.Dir(image.Path)
-				if imageMod.Path() != imageDir {
-					imageMod, err = gopmod.Load(imageDir)
-					if err != nil {
-						imageMod = gopmod.Default
+				if imageMod == nil {
+					if mod, err := gopmod.Load(filepath.Dir(image.Path)); err == nil {
+						imageMod = mod
 					}
 				}
-				cuName := cu.name
-				if runtime.GOOS == "windows" {
-					cuName = filepath.ToSlash(cuName)
-				}
-				// filter test file suffix: support test debug
-				cuName = strings.TrimSuffix(cuName, "_test")
-				for _, fileEntry := range cu.lineInfo.FileNames {
-					if isGopFile(fileEntry.Path) {
-						filePakage := strings.TrimSuffix(cuName, cu.lineInfo.IncludeDirs[fileEntry.DirIdx])
-						absPath := relPathToAbsPathByPackage(imageMod, filePakage, fileEntry.Path)
-						cu.lineInfo.Lookup[absPath] = fileEntry
-						delete(cu.lineInfo.Lookup, fileEntry.Path)
-						fileEntry.Path = absPath
+				if imageMod != nil {
+					cuName := cu.name
+					if runtime.GOOS == "windows" {
+						cuName = filepath.ToSlash(cuName)
+					}
+					// filter test file suffix: support test debug
+					cuName = strings.TrimSuffix(cuName, "_test")
+					for _, fileEntry := range cu.lineInfo.FileNames {
+						filePath := fileEntry.Path
+						if !filepath.IsAbs(filePath) && isGopFile(filePath) {
+							filePakage := strings.TrimSuffix(cuName, cu.lineInfo.IncludeDirs[fileEntry.DirIdx])
+							absPath := relPathToAbsPathByPackage(imageMod, filePakage, filePath)
+							cu.lineInfo.Lookup[absPath] = fileEntry
+							delete(cu.lineInfo.Lookup, filePath)
+							fileEntry.Path = absPath
+						}
 					}
 				}
 			}

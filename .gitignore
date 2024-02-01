@@ -11,4 +11,6 @@ localtests
 *.iml
 .teamcity/target
 .vscode
+
 .DS_Store
+gop_autogen*.go

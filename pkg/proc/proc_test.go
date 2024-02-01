@@ -333,7 +333,17 @@ func TestStep(t *testing.T) {
 		}
 	})
 }
+func TestSources(t *testing.T) {
+	protest.AllowRecording(t)
+	withTestProcessArgs("goptest/", t, ".", []string{"test"}, 0, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
+		for i, v := range p.BinInfo().Sources {
+			if strings.HasSuffix(v, ".gop") {
+				t.Log(i, v)
+			}
 
+		}
+	})
+}
 func TestBreakpoint(t *testing.T) {
 	protest.AllowRecording(t)
 	withTestProcess("testprog", t, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {

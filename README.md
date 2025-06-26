@@ -1,15 +1,9 @@
 ![Delve](https://raw.githubusercontent.com/go-delve/delve/master/assets/delve_horizontal.png)
 
-<<<<<<< HEAD
 [![Build Status](https://github.com/goplus/mod/actions/workflows/go.yml/badge.svg)](https://github.com/goplus/mod/actions/workflows/go.yml)
 [![license](http://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/go-delve/delve/master/LICENSE)
 [![GoDoc](https://godoc.org/github.com/go-delve/delve?status.svg)](https://godoc.org/github.com/go-delve/delve)
-[![Language](https://img.shields.io/badge/language-Go+-blue.svg)](https://github.com/goplus/gop)
-=======
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/go-delve/delve/master/LICENSE)
-[![Go Reference](https://pkg.go.dev/badge/github.com/go-delve/delve.svg)](https://pkg.go.dev/github.com/go-delve/delve)
-[![Build Status](https://delve.teamcity.com/app/rest/builds/buildType:(id:Delve_AggregatorBuild)/statusIcon.svg)](https://delve.teamcity.com/viewType.html?buildTypeId=Delve_AggregatorBuild&guest=1)
->>>>>>> delve/master
+[![Language](https://img.shields.io/badge/language-Go+-blue.svg)](https://github.com/goplus/xgo)
 
 The GitHub issue tracker is for **bugs** only. Please use the [developer mailing list](https://groups.google.com/forum/#!forum/delve-dev) for any feature proposals and discussions.
 

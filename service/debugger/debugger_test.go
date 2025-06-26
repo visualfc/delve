@@ -16,11 +16,10 @@ import (
 	"github.com/go-delve/delve/service/api"
 )
 
-<<<<<<< HEAD
 const (
-	goTool = "go" // gopdlv: add `goTool`
+	goTool = "go" // xgodlv: add `goTool`
 )
-=======
+
 func TestMain(m *testing.M) {
 	var logConf string
 	flag.StringVar(&logConf, "log", "", "configures logging")
@@ -28,7 +27,6 @@ func TestMain(m *testing.M) {
 	logflags.Setup(logConf != "", logConf, "")
 	protest.RunTestsWithFixtures(m)
 }
->>>>>>> delve/master
 
 func TestDebugger_LaunchNoMain(t *testing.T) {
 	fixturesDir := protest.FindFixturesDir()

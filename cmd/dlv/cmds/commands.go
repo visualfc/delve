@@ -618,7 +618,7 @@ func dapCmd(cmd *cobra.Command, args []string) {
 
 // gopdlv: add `goTool`
 func goTool(cmd *cobra.Command) string {
-	return "gop" // TODO
+	return "xgo" // TODO
 }
 
 func buildBinary(cmd *cobra.Command, args []string, isTest bool) (string, bool) {

@@ -77,7 +77,7 @@ type LaunchConfig struct {
 	Mode string `json:"mode,omitempty"`
 
 	// goxdlv: add `goTool`
-	// Tool is the command to build/test packages. Default is `gop` (not `go`).
+	// Tool is the command to build/test packages. Default is `xgo` (not `go`).
 	Tool string `json:"tool,omitempty"`
 
 	// Path to the program folder (or any go file within that folder)
@@ -168,7 +168,7 @@ type LaunchConfig struct {
 
 func (p *LaunchConfig) goTool() string {
 	if p.Tool == "" {
-		return "gop"
+		return "xgo"
 	}
 	return p.Tool
 }

@@ -2469,13 +2469,13 @@ func (bi *BinaryInfo) registerTypeToPackageMap(entry *dwarf.Entry) {
 	bi.PackageMap[name] = []string{path}
 }
 
-// check file is gop or gop classfile
-func isGopFile(file string) bool {
+// check file is xgo or xgo classfile
+func isXGoFile(file string) bool {
 	fileExt := filepath.Ext(file)
 	return fileExt != "" && fileExt != ".go" && fileExt != ".s"
 }
 
-// gop file relative path to absolute path
+// xgo file relative path to absolute path
 func relPathToAbsPathByPackage(imageMod *xgomod.Module, filePakage string, relPath string) string {
 	absPath := filePakage
 	if filePakage == "main" {
@@ -2605,7 +2605,7 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugInfoBytes, debugLineB
 					cuName = strings.TrimSuffix(cuName, "_test")
 					for _, fileEntry := range cu.lineInfo.FileNames {
 						filePath := fileEntry.Path
-						if !filepath.IsAbs(filePath) && isGopFile(filePath) {
+						if !filepath.IsAbs(filePath) && isXGoFile(filePath) {
 							filePakage := strings.TrimSuffix(cuName, cu.lineInfo.IncludeDirs[fileEntry.DirIdx])
 							absPath := relPathToAbsPathByPackage(imageMod, filePakage, filePath)
 							cu.lineInfo.Lookup[absPath] = fileEntry

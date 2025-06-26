@@ -136,7 +136,7 @@ type Config struct {
 	TTY string
 
 	// goxdlv: add `goTool`
-	// Tool is the command to build/test packages. Default is `gop` (not `go`).
+	// Tool is the command to build/test packages. Default is `xgo` (not `go`).
 	Tool string
 
 	// Packages contains the packages that we are debugging.
@@ -165,7 +165,7 @@ type Config struct {
 
 func (p *Config) goTool() string {
 	if p.Tool == "" {
-		return "gop"
+		return "xgo"
 	}
 	return p.Tool
 }

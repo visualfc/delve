@@ -345,6 +345,7 @@ func TestStepInstruction(t *testing.T) {
 		}
 	})
 }
+
 func TestSources(t *testing.T) {
 	protest.AllowRecording(t)
 	withTestProcessArgs("goptest/", t, ".", []string{"test"}, 0, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
@@ -352,12 +353,10 @@ func TestSources(t *testing.T) {
 			if strings.HasSuffix(v, ".gop") {
 				t.Log(i, v)
 			}
-
-<<<<<<< HEAD
 		}
 	})
 }
-=======
+
 func TestNextInstruction(t *testing.T) {
 	protest.AllowRecording(t)
 	withTestProcess("testprog", t, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
@@ -371,7 +370,6 @@ func TestNextInstruction(t *testing.T) {
 	})
 }
 
->>>>>>> delve/master
 func TestBreakpoint(t *testing.T) {
 	protest.AllowRecording(t)
 	withTestProcess("testprog", t, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
